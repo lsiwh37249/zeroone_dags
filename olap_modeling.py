@@ -6,28 +6,49 @@ from airflow.operators.dummy import DummyOperator
 from datetime import timedelta, datetime
 import random  # 실제 검증 로직 대신 시뮬레이션용
 from utils.OlapModeling import OlapModeling
+import os
+
+AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow")
+OLAP_DIR = os.path.join(AIRFLOW_HOME, "data/olap")
+os.makedirs(OLAP_DIR, exist_ok=True)
+
+log_df_file_path = os.path.join(OLAP_DIR, "log_df.csv")
+dim_customer_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_customer.csv")
+dim_product_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_product.csv")
+fact_order_updated_file_path = os.path.join(OLAP_DIR, "fact", "fact_order.csv")
 
 Modeling = OlapModeling()
 
-def load():
-    Modeling.load()
+def load(**context):
+    log_df = Modeling.load()
+    log_df.to_csv(log_df_file_path, index=False)
 
-def dimension():
-    Modeling.dimension()
+def dim_customer(**context):
+    dim_customer_updated = Modeling.dimension_customer(log_df_file_path,dim_customer_updated_file_path)
+    dim_customer_updated.to_csv(dim_customer_updated_file_path, index=False)
 
-def fact():
-    Modeling.fact()
+def dim_product(**context):
+    dim_product_updated = Modeling.dimension_product(log_df_file_path,dim_product_updated_file_path)
+    dim_product_updated.to_csv(dim_product_updated_file_path, index=False)
 
+def fact(**context):
+    fact_order_updated = Modeling.fact(
+        log_df_file_path,
+        dim_product_updated_file_path,
+        dim_customer_updated_file_path,
+        fact_order_updated_file_path
+    )
+    fact_order_updated.to_csv(fact_order_updated_file_path, index=False)
 
-def send_slack_alert(**context):
-    Modeling.send_slack_alert()
+def save(**context):
+    Modeling.save(
+        dim_customer_updated_file_path,
+        dim_product_updated_file_path,
+        fact_order_updated_file_path
+    )
+def notification():
+    print("notification")
 
-
-# ------------------------------
-def save_error_to_file(**kwargs):
-    with open('/tmp/error_log.txt', 'w') as f:
-        f.write("에러: 데이터 처리 실패 - 테이블 불일치")
- 
 # DAG 정의
 default_args = {
     'owner': 'airflow',
@@ -52,19 +73,24 @@ with DAG(
         python_callable=load,
     )
 
-    dimension = PythonOperator(
-        task_id='dimension',
-        python_callable=lambda: print("📐 Processing dimension data..."),
+    dimension_product = PythonOperator(
+        task_id='dimension_product',
+        python_callable=dim_product,
+    )
+    
+    dimension_customer = PythonOperator(
+        task_id='dimension_customer',
+        python_callable=dim_customer,
     )
 
     fact = PythonOperator(
         task_id='fact',
-        python_callable=lambda: print("📊 Processing fact data..."),
+        python_callable=fact,
     )
 
     save = PythonOperator(
         task_id='save',
-        python_callable=lambda: print("✅ Saving final data..."),
+        python_callable=save,
     )
 
     #skip_fact_and_save = PythonOperator(
@@ -74,11 +100,10 @@ with DAG(
 
     notification = PythonOperator(
         task_id='notification',
-        python_callable=lambda: print(" slack notification "),
+        python_callable=notification,
     )
 
     end = DummyOperator(task_id='end')
 
     # DAG 흐름 정의
-    start >> load >> dimension >> fact >> save >> notification >> end
-
+    start >> load >> [dimension_customer, dimension_product] >> fact >> save >> notification >> end
