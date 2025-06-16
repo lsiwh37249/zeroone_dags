@@ -46,6 +46,9 @@ with DAG(
     tags=['olap'],
 ) as dag:
 
+
+    start = EmptyOperator(task_id='start')
+    
     load = PythonOperator(
         task_id='load',
         python_callable=lambda: print("🔄 Loading data..."),
@@ -91,8 +94,10 @@ with DAG(
         python_callable=lambda: print(" slack notification "),
     )
 
+    end = EmptyOperator(task_id='end')
+
     # DAG 흐름 정의
-    load >> save_rawdata >> validate_data >> branch
-    branch >> dimension >> fact >> save >> notification
-    branch >> skip_fact_and_save >> notification
+    start >> load >> save_rawdata >> validate_data >> branch
+    branch >> dimension >> fact >> save >> notification >> end
+    branch >> skip_fact_and_save >> notification >> end
 

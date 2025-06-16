@@ -43,6 +43,9 @@ with DAG(
     tags=['log', 'ingestion', 'bigquery'],
 ) as dag:
 
+
+    start = EmptyOperator(task_id='start')
+
     fetch = PythonOperator(
         task_id='fetch_logs',
         python_callable=fetch_logs
@@ -56,5 +59,8 @@ with DAG(
     success = DummyOperator(task_id='success')
     fail = DummyOperator(task_id='fail')
 
-    fetch >> branch >> [success, fail]
+
+    end = EmptyOperator(task_id='end')
+
+    start > >fetch >> branch >> [success, fail] >> end
 
