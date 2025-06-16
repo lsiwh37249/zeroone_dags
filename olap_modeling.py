@@ -24,12 +24,22 @@ def load(**context):
     log_df.to_csv(log_df_file_path, index=False)
 
 def dim_customer(**context):
-    dim_customer_updated = Modeling.dimension_customer(log_df_file_path,dim_customer_updated_file_path)
-    dim_customer_updated.to_csv(dim_customer_updated_file_path, index=False)
+    #dim_customer_updated = Modeling.dimension_customer(log_df_file_path,dim_customer_updated_file_path)
+    updated_customers = Modeling.update_dimension_table(
+        log_df_path=log_df_file_path,
+        dim_file_path= dim_customer_updated_file_path,
+        keys=['customer_name', 'region'],
+        id_column_name='customer_id'
+    )   
 
 def dim_product(**context):
-    dim_product_updated = Modeling.dimension_product(log_df_file_path,dim_product_updated_file_path)
-    dim_product_updated.to_csv(dim_product_updated_file_path, index=False)
+    #dim_product_updated = Modeling.dimension_product(log_df_file_path,dim_product_updated_file_path)
+    updated_products = Modeling.update_dimension_table(
+        log_df_path=log_df_file_path,
+        dim_file_path=dim_product_updated_file_path,
+        keys=['product_name', 'category'],
+        id_column_name='product_id'
+    )
 
 def fact(**context):
     fact_order_updated = Modeling.fact(
