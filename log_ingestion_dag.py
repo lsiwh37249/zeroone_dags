@@ -2,8 +2,9 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from google.cloud import bigquery
-import pandas as pdd
+import pandas as pd
 import os
+from utils.BigQueryFetcher import BigQueryFetcher
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
@@ -21,9 +22,9 @@ default_args = {
 }
 
 def fetch_logs():
-    print("get data from data source")
-    # 실제 데이터 수집 코드 또는 API 호출 등
-
+    fetcher = BigQueryFetcher()
+    #fetcher.get_data()
+    fetcher.make_temp_data()
 def check_data_condition():
     # 예시: 데이터 수집 결과에 따라 분기
     # True면 success, False면 fail로 분기
@@ -44,7 +45,7 @@ with DAG(
 ) as dag:
 
 
-    start = EmptyOperator(task_id='start')
+    start = DummyOperator(task_id='start')
 
     fetch = PythonOperator(
         task_id='fetch_logs',
@@ -60,7 +61,7 @@ with DAG(
     fail = DummyOperator(task_id='fail')
 
 
-    end = EmptyOperator(task_id='end')
+    end = DummyOperator(task_id='end')
 
-    start > >fetch >> branch >> [success, fail] >> end
+    start >> fetch >> branch >> [success, fail] >> end
 

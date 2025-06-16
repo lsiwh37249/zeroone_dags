@@ -1,6 +1,6 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
-from airflow.operators.empty import EmptyOperator
+from airflow.operators.dummy import DummyOperator
 from datetime import datetime, timedelta
 
 default_args = {
@@ -43,7 +43,7 @@ with DAG(
     tags=['db', 'etl', 'notification'],
 ) as dag:
 
-    start = EmptyOperator(task_id='start')
+    start = DummyOperator(task_id='start')
 
     fetch = PythonOperator(
         task_id='fetch_db_data',
@@ -76,7 +76,7 @@ with DAG(
         python_callable=fail_notification,
     )
 
-    end = EmptyOperator(task_id='end')
+    end = DummyOperator(task_id='end')
 
     start >> fetch >> branch >> [success, fail]
     success >> success_notify >> end
