@@ -86,8 +86,13 @@ with DAG(
         python_callable=lambda: print("⚠️ Skipping fact/save due to invalid data"),
     )
 
+    notification = PythonOperator(
+        task_id='notification',
+        python_callable=lambda: print(" slack notification "),
+    )
+
     # DAG 흐름 정의
     load >> save_rawdata >> validate_data >> branch
-    branch >> dimension >> fact >> save
-    branch >> skip_fact_and_save
+    branch >> dimension >> fact >> save >> notification
+    branch >> skip_fact_and_save >> notification
 
