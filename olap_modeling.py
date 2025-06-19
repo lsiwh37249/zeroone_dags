@@ -4,7 +4,8 @@ from airflow.utils.dates import days_ago
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.dummy import DummyOperator
 from datetime import timedelta, datetime
-from utils.OlapModeling import OlapModeling 
+from utils.OlapModeling import OlapModeling
+from utils.BigQuery import BigQuery
 import os
 
 AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/home/kim/app/airflow")
@@ -22,7 +23,7 @@ fact_updated_path = ""
 
 ### 클래스
 Modeling = OlapModeling()
-
+BigQuery = BigQuery()
 def load(**context):
     date = context['execution_date'].strftime('%Y%m%d')
     raw_path = os.path.join(AIRFLOW_HOME, "data", "temp", f"event_log_{date}.csv")
@@ -60,7 +61,7 @@ def dim_event():
 
 def fact(**context):
     date = context['execution_date'].strftime('%Y%m%d')
-    fact_updated_path = os.path.join(OLAP_DIR, "fact", f"{date}")
+    fact_updated_path = os.path.join(OLAP_DIR, "fact", f"fact_event_{date}")
     Modeling.fact(log_path,
            dim_member_updated_file_path,
            dim_event_updated_file_path,
@@ -68,6 +69,9 @@ def fact(**context):
            dim_time_updated_file_path,
            dim_study_updated_file_path,
            fact_updated_path)
+
+def upload():
+    BigQuery.upload()
 
 def notification():
     print("notification")
