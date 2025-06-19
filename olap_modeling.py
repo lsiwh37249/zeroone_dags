@@ -4,33 +4,71 @@ from airflow.utils.dates import days_ago
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.operators.dummy import DummyOperator
 from datetime import timedelta, datetime
-import random  # 실제 검증 로직 대신 시뮬레이션용
 from utils.OlapModeling import OlapModeling 
 import os
 
-AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/opt/airflow")
+AIRFLOW_HOME = os.environ.get("AIRFLOW_HOME", "/home/kim/app/airflow")
 OLAP_DIR = os.path.join(AIRFLOW_HOME, "data/olap")
-os.makedirs(OLAP_DIR, exist_ok=True)
 
-log_df_file_path = os.path.join(OLAP_DIR, "log_df.csv")
-dim_event_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_event.csv")
+### 파일 저장 경로 : log 데이터, dim 데이터, fact 데이터
+raw_path = ""
+log_path = os.path.join(OLAP_DIR, "log")
+dim_member_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_member.csv")
+dim_event_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_event_type.csv")
+dim_study_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_study.csv")
+dim_date_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_date.csv")
+dim_time_updated_file_path = os.path.join(OLAP_DIR, "dim", "dim_time.csv")
+fact_updated_path = ""
 
+### 클래스
 Modeling = OlapModeling()
 
 def load(**context):
-    log_df = Modeling.load()
-    log_df.to_csv(log_df_file_path, index=False)
+    date = context['execution_date'].strftime('%Y%m%d')
+    raw_path = os.path.join(AIRFLOW_HOME, "data", "temp", f"event_log_{date}.csv")
+    Modeling.load(date, raw_path, log_path)
 
-def dim_event(**context):
-    date = "20250601"
-    id_column_name = "event_id"
+"""
+    keys : 기존의 없는 값을 구분하기 위한 칼럼들
+    id_column_name : dim 테이블의 기본키
+"""
+
+def dim_member(**context):
+    keys = ['dl_member_id']
+    id_column_name = 'member_id'
+    Modeling.update_dimension_table(log_path,dim_member_updated_file_path,keys,id_column_name)
+
+def dim_study():
+    keys = ['dl_study_id']
+    id_column_name = 'study_id'
+    Modeling.update_dimension_table(log_path, dim_study_updated_file_path, keys, id_column_name)
+
+def dim_date():
+    keys = ['date']
+    id_column_name = 'date_id'
+    Modeling.update_dimension_table(log_path, dim_date_updated_file_path, keys, id_column_name)
+    
+def dim_time():
+    keys = ['time']
+    id_column_name = 'time_id'
+    Modeling.update_dimension_table(log_path, dim_time_updated_file_path, keys, id_column_name)
+
+def dim_event():
     keys = ['event']
-    Modeling.update_dimension_table(log_df_file_path, dim_event_updated_file_path, keys, id_column_name)
+    id_column_name = 'event_type_id'
+    Modeling.update_dimension_table(log_path, dim_event_updated_file_path, keys, id_column_name)
 
 def fact(**context):
-    pass
-def save(**context):
-    pass
+    date = context['execution_date'].strftime('%Y%m%d')
+    fact_updated_path = os.path.join(OLAP_DIR, "fact", f"{date}")
+    Modeling.fact(log_path,
+           dim_member_updated_file_path,
+           dim_event_updated_file_path,
+           dim_date_updated_file_path,
+           dim_time_updated_file_path,
+           dim_study_updated_file_path,
+           fact_updated_path)
+
 def notification():
     print("notification")
 
@@ -58,19 +96,40 @@ with DAG(
         python_callable=load,
     )
 
-    dimension_event = PythonOperator(
-        task_id='dimension_event',
-        python_callable=dim_event,
+    task_dim_member = PythonOperator(
+        task_id='dim_member',
+        python_callable=dim_member,
+        provide_context=True,
     )
 
-    fact = PythonOperator(
+    task_dim_study = PythonOperator(
+        task_id='dim_study',
+        python_callable=dim_study,
+        provide_context=True,
+    )
+
+    task_dim_event = PythonOperator(
+        task_id='dim_event',
+        python_callable=dim_event,
+        provide_context=True,
+    )
+
+    task_dim_date = PythonOperator(
+        task_id='dim_date',
+        python_callable=dim_date,
+        provide_context=True,
+    )
+
+    task_dim_time = PythonOperator(
+        task_id='dim_time',
+        python_callable=dim_time,
+        provide_context=True,
+    )
+
+    task_fact = PythonOperator(
         task_id='fact',
         python_callable=fact,
-    )
-
-    save = PythonOperator(
-        task_id='save',
-        python_callable=save,
+        provide_context=True,
     )
 
     notification = PythonOperator(
@@ -81,4 +140,10 @@ with DAG(
     end = DummyOperator(task_id='end')
 
     # DAG 흐름 정의
-    start >> load >> [dimension_event] >> fact >> save >> notification >> end
+    start >> load >>     [
+        task_dim_member,
+        task_dim_study,
+        task_dim_event,
+        task_dim_date,
+        task_dim_time
+    ] >> task_fact  >> notification >> end
