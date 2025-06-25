@@ -4,8 +4,7 @@ from datetime import datetime, timedelta
 from google.cloud import bigquery
 import pandas as pd
 import os
-from utils.BigQueryFetcher import BigQueryFetcher
-
+from utils.EventLogGenerator import EventLogGenerator 
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.dummy import DummyOperator
@@ -14,17 +13,19 @@ from datetime import datetime, timedelta
 BQ_PROJECT = 'your-gcp-project-id'
 BQ_DATASET = 'staging'
 BQ_TABLE = 'raw_logs'
-
+AIRFLOW_HOME = os.getenv("AIRFLOW_HOME")
 default_args = {
     'owner': 'airflow',
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
 }
 
-def fetch_logs():
-    fetcher = BigQueryFetcher()
-    #fetcher.get_data()
-    fetcher.make_temp_data()
+def fetch_logs(**context):
+    
+    date = context['execution_date'].strftime("%Y-%m-%d")
+    
+    fetcher = EventLogGenerator(f"{AIRFLOW_HOME}/data/temp")
+    fetcher.save_to_csv(date)
 def check_data_condition():
     # 예시: 데이터 수집 결과에 따라 분기
     # True면 success, False면 fail로 분기

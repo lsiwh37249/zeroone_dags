@@ -11,6 +11,7 @@ default_args = {
 
 def fetch_db_data():
     # DB에서 데이터 조회하는 로직 작성
+    # member 부가 정보 가지고 오기
     pass
 
 def branch_func(**context):
