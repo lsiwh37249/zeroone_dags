@@ -21,5 +21,17 @@
 ### 문제 해결 과정 
 ```
 - Airflow Task 간의 DataFrame 공유 불가능 : 파일이 저장된 경로를 기반으로 데이터 참조
- 
+```
+
+###
+
+### olap_modeling 구성
+```
+    start >> load >>  [
+        task_dim_member,
+        task_dim_study,
+        task_dim_event,
+        task_dim_date,
+        task_dim_time
+    ] >> task_fact  >> task_valid >> task_upload_dims >> task_upload_fact >> notification >> end
 ```
